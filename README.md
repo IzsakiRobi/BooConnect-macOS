@@ -1,3 +1,7 @@
+<p align="center">
+<img width="412" height="462" align="center" alt="Teaser" src="https://github.com/IzsakiRobi/BooConnect-macOS/blob/main/Screenshots/Teaser.png?raw=true" />
+</p>
+
 # BooConnect for macOS
 
 **BooConnect** is a small menu bar GUI for OpenConnect / Cisco AnyConnect VPN connections on macOS.
