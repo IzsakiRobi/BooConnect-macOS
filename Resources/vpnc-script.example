@@ -1,0 +1,90 @@
+#!/bin/sh
+
+if [ -z "$OS" ]; then
+    OS=$(uname -s)
+fi
+
+add_split_routes() {
+    i=0
+    while [ "$i" -lt "${CISCO_SPLIT_INC:-0}" ]; do
+        eval network=\${CISCO_SPLIT_INC_${i}_ADDR}
+        eval netmask=\${CISCO_SPLIT_INC_${i}_MASK}
+        eval masklen=\${CISCO_SPLIT_INC_${i}_MASKLEN}
+
+        if [ -n "$network" ]; then
+            if [ -n "$netmask" ]; then
+                /sbin/route add -net "$network" -netmask "$netmask" -interface "$TUNDEV" >/dev/null 2>&1
+            elif [ -n "$masklen" ]; then
+                /sbin/route add -net "$network/$masklen" -interface "$TUNDEV" >/dev/null 2>&1
+            fi
+        fi
+
+        i=$((i + 1))
+    done
+}
+
+delete_split_routes() {
+    i=0
+    while [ "$i" -lt "${CISCO_SPLIT_INC:-0}" ]; do
+        eval network=\${CISCO_SPLIT_INC_${i}_ADDR}
+        eval netmask=\${CISCO_SPLIT_INC_${i}_MASK}
+        eval masklen=\${CISCO_SPLIT_INC_${i}_MASKLEN}
+
+        if [ -n "$network" ]; then
+            if [ -n "$netmask" ]; then
+                /sbin/route delete -net "$network" -netmask "$netmask" -interface "$TUNDEV" >/dev/null 2>&1
+            elif [ -n "$masklen" ]; then
+                /sbin/route delete -net "$network/$masklen" -interface "$TUNDEV" >/dev/null 2>&1
+            fi
+        fi
+
+        i=$((i + 1))
+    done
+}
+
+configure_dns() {
+    if [ -z "$INTERNAL_IP4_DNS" ]; then
+        return
+    fi
+
+    /usr/sbin/scutil <<EOF
+d.init
+d.add ServerAddresses * $INTERNAL_IP4_DNS
+set State:/Network/Service/$TUNDEV/DNS
+quit
+EOF
+}
+
+clear_dns() {
+    /usr/sbin/scutil <<EOF
+remove State:/Network/Service/$TUNDEV/DNS
+quit
+EOF
+}
+
+do_connect() {
+    ifconfig "$TUNDEV" inet "$INTERNAL_IP4_ADDRESS" "$INTERNAL_IP4_ADDRESS" \
+        netmask 255.255.255.255 mtu "${INTERNAL_IP4_MTU:-1406}" up
+
+    add_split_routes
+    configure_dns
+}
+
+do_disconnect() {
+    delete_split_routes
+    clear_dns
+    ifconfig "$TUNDEV" down
+}
+
+case "$reason" in
+    connect|reconnect)
+        do_connect
+        ;;
+    disconnect)
+        do_disconnect
+        ;;
+    *)
+        ;;
+esac
+
+exit 0

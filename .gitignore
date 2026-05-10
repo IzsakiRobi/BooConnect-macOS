@@ -1,0 +1,4 @@
+.DS_Store
+*.xcuserstate
+BooConnect.app/
+.vpn_config.json
